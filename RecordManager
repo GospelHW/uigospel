@@ -1,0 +1,241 @@
+package com.amen.gospel.utils;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import android.view.accessibility.AccessibilityNodeInfo;
+
+import com.amen.gospel.log.Logger;
+import com.amen.gospel.model.RecordInfo;
+import com.amen.gospel.service.FloatWindowService;
+
+/**
+ * @author syl 20170525 录制管理器
+ */
+public class RecordManager {
+
+	private static final String TAG = "RecordManager";
+	public static List<RecordInfo> recordList = new ArrayList<RecordInfo>();
+
+	public static void addRecord(RecordInfo record) {
+		Logger.i(TAG, "addRecord--->>" + record.toString());
+		recordList.add(record);
+		Logger.i(TAG, "addRecord--->>:" + recordList.size());
+
+	}
+
+	public static void clearRecord() {
+		Logger.i(TAG, "clear recordList--->>");
+		recordList.clear();
+	}
+
+	/**
+	 * 开始回放从录制记录，或回放当前录制的
+	 * 
+	 * @param service
+	 * @param records
+	 * @param playNum
+	 */
+	public static void runRecords(FloatWindowService service,
+			List<RecordInfo> records, int playNum) {
+		recordList = records;
+		try {
+			Thread.sleep(100);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		int size = records.size();
+		Logger.i(TAG, "Start run records! Total Size:" + size);
+		if (records.size() > 0) {
+			// input RecordInfo
+			RecordInfo lastInputRecord = null;
+			boolean isLastInputRecord = false;
+			// scroll info
+			// Toast.makeText(MyApplication.getContext(), "�?始回�?",
+			// Toast.LENGTH_SHORT).show();
+			for (int i = 0; i < size; i++) {
+				RecordInfo record = records.get(i);
+				Logger.i(TAG, "[Run Record] " + record.toString());
+
+				// 循环次数，默认为1次，在Setting里设置
+
+				for (int p = 0; p < playNum; i++) {
+					int actionType = record.getActionType();
+					// 过滤掉此次输入事件前面的不完全的文本，直接取�?后一次完整的文本信息输入
+					if (RecordAction.ACTION_INPUT == actionType) {
+						lastInputRecord = record;
+						isLastInputRecord = true;
+						if (i == size - 1) {
+							// 输入文本
+							Logger.i(
+									TAG,
+									"last record 输入文本"
+											+ lastInputRecord.getInput_text());
+							// Utils.sendText(lastInputRecord.getNode(),
+							// lastInputRecord.getInput_text());
+							Utils.sendText(lastInputRecord);
+							isLastInputRecord = false;
+						}
+						continue;
+					} else {
+						if (isLastInputRecord) {
+							// 输入文本
+							Logger.i(TAG,
+									"输入文本" + lastInputRecord.getInput_text());
+							// Utils.sendText(lastInputRecord.getNode(),
+							// lastInputRecord.getInput_text());
+							Utils.sendText(lastInputRecord);
+							isLastInputRecord = false;
+						}
+					}
+					switch (actionType) {
+					case RecordAction.ACTION_STARTACTIVITY:
+						String packageName = record.getActivityName()
+								.split("/")[0];
+						// 清除当前apk的用户数�?
+						Logger.i(TAG, "清除当前apk的用户数据：" + packageName);
+						Utils.clearDataByPackageName(
+								MyApplication.getContext(), packageName);
+						// 打开指定activity
+						Utils.startActivity(record.getActivityName());
+						break;
+					case RecordAction.ACTION_CLICK:
+						// 点击控件
+						Logger.i(TAG, "点击控件");
+						// Utils.clickNode(record.getNode());
+						if (!Utils.scrollClick(record)) {
+							Logger.i(TAG, "点击失败，回放结束");
+							Utils.showDialog(service, "点击失败，回放结束...", 1000);
+							return;
+						}
+						// if (i < size - 1) {
+						// // 判断是否跳入下一个页�?
+						// AccessibilityNodeInfo tempNode = Utils.getRootNode();
+						// if (tempNode == null) {
+						// Logger.i(TAG, "点击失败，回放结�?");
+						// Utils.showDialog(service, "点击进入错误的页面，回放结束...", 1000);
+						// return;
+						// }
+						// int childCount = tempNode.getChildCount();
+						// if (childCount > 0) {
+						// for (int k = 0; k < childCount; k++) {
+						// getChildRecursive(tempNode.getChild(k), i + 1);
+						// }
+						// }
+						// if(bFlag ==true){
+						// bFlag = false;
+						// }else{
+						// Logger.i(TAG, "点击失败，回放结�?");
+						// Utils.showDialog(service, "点击进入错误的页面，回放结束...", 1000);
+						// return;
+						// }
+						// } else {
+						// //�?后一个页�?
+						// }
+						break;
+					}
+					// 回放速度太快，等待一会儿
+					try {
+						Thread.sleep(500);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+			Logger.e(TAG, "回放结束!");
+			Utils.showDialog(service, "回放结束...", 1000);
+			// Utils.showDialog("回放结束...");
+		} else {
+			Logger.e(TAG, "回放记录队列为空!");
+			Utils.showDialog(service, "回放记录队列为空...", 1000);
+		}
+	}
+
+	private static boolean bFlag = false;
+
+	private static void getChildRecursive(AccessibilityNodeInfo node, int k) {
+		if (node != null) {
+			RecordInfo record = recordList.get(k);
+			String id = record.getId();
+			String text = record.getText();
+
+			if (!Utils.isNullOrBlank(id) && !Utils.isNullOrBlank(text)) {
+				if (id.equals(node.getViewIdResourceName())
+						&& text.equals(safeCharSeqToString(node.getText()))) {
+					bFlag = true;
+					return;
+				}
+			} else if (!Utils.isNullOrBlank(id)) {
+				if (id.equals(node.getViewIdResourceName())) {
+					bFlag = true;
+					return;
+				}
+
+			} else if (!Utils.isNullOrBlank(text)) {
+				if (id.equals(text.equals(safeCharSeqToString(node.getText())))) {
+					bFlag = true;
+					return;
+				}
+			}
+			int childCcount = node.getChildCount();
+			if (childCcount > 0) {
+				for (int i = 0; i < childCcount; i++) {
+					getChildRecursive(node.getChild(i), k);
+				}
+			}
+		}
+	}
+
+	private static String safeCharSeqToString(CharSequence cs) {
+		if (cs == null)
+			return "";
+		else {
+			return stripInvalidXMLChars(cs);
+		}
+	}
+
+	private static String stripInvalidXMLChars(CharSequence cs) {
+		StringBuffer ret = new StringBuffer();
+		char ch;
+		/*
+		 * http://www.w3.org/TR/xml11/#charsets [#x1-#x8], [#xB-#xC],
+		 * [#xE-#x1F], [#x7F-#x84], [#x86-#x9F], [#xFDD0-#xFDDF],
+		 * [#x1FFFE-#x1FFFF], [#x2FFFE-#x2FFFF], [#x3FFFE-#x3FFFF],
+		 * [#x4FFFE-#x4FFFF], [#x5FFFE-#x5FFFF], [#x6FFFE-#x6FFFF],
+		 * [#x7FFFE-#x7FFFF], [#x8FFFE-#x8FFFF], [#x9FFFE-#x9FFFF],
+		 * [#xAFFFE-#xAFFFF], [#xBFFFE-#xBFFFF], [#xCFFFE-#xCFFFF],
+		 * [#xDFFFE-#xDFFFF], [#xEFFFE-#xEFFFF], [#xFFFFE-#xFFFFF],
+		 * [#x10FFFE-#x10FFFF].
+		 */
+		for (int i = 0; i < cs.length(); i++) {
+			ch = cs.charAt(i);
+
+			if ((ch >= 0x1 && ch <= 0x8) || (ch >= 0xB && ch <= 0xC)
+					|| (ch >= 0xE && ch <= 0x1F) || (ch >= 0x7F && ch <= 0x84)
+					|| (ch >= 0x86 && ch <= 0x9f)
+					|| (ch >= 0xFDD0 && ch <= 0xFDDF)
+					|| (ch >= 0x1FFFE && ch <= 0x1FFFF)
+					|| (ch >= 0x2FFFE && ch <= 0x2FFFF)
+					|| (ch >= 0x3FFFE && ch <= 0x3FFFF)
+					|| (ch >= 0x4FFFE && ch <= 0x4FFFF)
+					|| (ch >= 0x5FFFE && ch <= 0x5FFFF)
+					|| (ch >= 0x6FFFE && ch <= 0x6FFFF)
+					|| (ch >= 0x7FFFE && ch <= 0x7FFFF)
+					|| (ch >= 0x8FFFE && ch <= 0x8FFFF)
+					|| (ch >= 0x9FFFE && ch <= 0x9FFFF)
+					|| (ch >= 0xAFFFE && ch <= 0xAFFFF)
+					|| (ch >= 0xBFFFE && ch <= 0xBFFFF)
+					|| (ch >= 0xCFFFE && ch <= 0xCFFFF)
+					|| (ch >= 0xDFFFE && ch <= 0xDFFFF)
+					|| (ch >= 0xEFFFE && ch <= 0xEFFFF)
+					|| (ch >= 0xFFFFE && ch <= 0xFFFFF)
+					|| (ch >= 0x10FFFE && ch <= 0x10FFFF))
+				ret.append(".");
+			else
+				ret.append(ch);
+		}
+		return ret.toString();
+	}
+}
