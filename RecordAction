@@ -1,0 +1,20 @@
+package com.amen.gospel.utils;
+
+/**
+ * @author syl 20170525 定义回放动作类型
+ */
+public class RecordAction {
+
+	// start activity
+	public static final int ACTION_STARTACTIVITY = 0;
+
+	// click node
+	public static final int ACTION_CLICK = 1;
+
+	// input text
+	public static final int ACTION_INPUT = 2;
+	// focused action
+	public static final int ACTION_FOCUSED = 3;
+	//swipe action
+	public static final int ACTION_SWIPE = 4;
+}
