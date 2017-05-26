@@ -1,0 +1,61 @@
+package com.amen.gospel.log;
+
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import android.annotation.SuppressLint;
+import android.util.Log;
+
+/**
+ * Logger
+ * 
+ * @author syl
+ */
+@SuppressLint("SimpleDateFormat")
+public class Logger {
+
+	private static OutputStreamWriter writer;
+	private static WriteThread writeThread = null;
+
+	public static void i(String tag, String msg) {
+		Log.i(tag, msg);
+		write(tag, msg);
+	}
+
+	public static void e(String tag, String msg) {
+		Log.e(tag, msg);
+		write(tag, msg);
+	}
+
+	private static void write(String tag, String msg) {
+		Date time = new Date();
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss:SSS");
+		String dsNow = sdf.format(time);
+		String str = "log level i " + dsNow + "    " + tag + "  " + msg;
+		if (writeThread == null || !writeThread.isWriteThreadLive) {// 监察写线程是否工作中，没�?
+																	// 则创�?
+			writeThread = new WriteThread();
+			writeThread.start();
+		}
+
+		writeThread.linkedQueue.add(str);
+	}
+
+	public static void close() {
+		if (writer != null) {
+			try {
+				writer.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+		if (writeThread != null) {
+			writeThread.isWriteThreadLive = false;
+			writeThread = null;
+		}
+
+	}
+}
